@@ -48,6 +48,7 @@ If you created an rstudio project, then your working directory (the directory wi
 
 ```{r}
 
+setwd("C:/Users/nanna/OneDrive - Aarhus universitet/3. Semester/Experimental Methods 3/LanguageDevelopmentASD")
 
 ```
 
@@ -57,6 +58,13 @@ Load the three data sets, after downloading them from dropbox and saving them in
 * Word data: https://www.dropbox.com/s/8ng1civpl2aux58/token_train.csv?dl=0
 
 ```{r}
+
+library(pacman)
+p_load(tidyverse, data.table, stringr, ggplot2, Metrics, lmerTest, caret, gdata)
+
+demo_train <- read.csv("demo_train.csv")
+token_train <- read.csv("token_train.csv")
+lu_train <- read.csv("LU_train.csv")
 
 ```
 
@@ -77,12 +85,29 @@ Tip: Or look through the chapter on data transformation in R for data science (h
 
 ```{r}
 
+#Renaming the data sets to have the same headline for the subject = ID
+
+demo_train <- rename.vars(demo_train, "Child.ID", "ID", info=T)
+lu_train <- rename.vars(lu_train, "SUBJ", "ID", info=T)
+token_train <- rename.vars(token_train, "SUBJ", "ID", info=T)
+
+
+#Renaming the visit to have the same 
+lu_train <- rename.vars(lu_train, "VISIT", "Visit", info=T)
+token_train <- rename.vars(token_train, "VISIT", "Visit", info=T)
+
 ```
 
 2b. Find a way to homogeneize the way "visit" is reported. If you look into the original data sets, you will see that in the LU data and the Token data, Visits are called "visit 1"" instead of just "1"" (which is the case in the demographic data set).
 Tip: There is a package called stringr, which will be very handy for manipulating (text) strings also in furture assignments. We will return to this package later, but for now use the str_extract () to extract only the number from the variable Visit in each data set.
 
 ```{r}
+
+#Homogeneize the way visit is reported, use of stringr to extract only numbers 
+
+lu_train$Visit <- str_extract(lu_train$Visit, "[1-6]")
+token_train$Visit <- str_extract(lu_train$Visit, "[1-6]")
+
 
 ```
 
@@ -97,9 +122,15 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 
 ```{r}
 
+#Removing all punctuations in the ID column 
+demo_train$ID <- str_replace_all(demo_train$ID, "[:punct:]", "")
+lu_train$ID <- str_replace_all(lu_train$ID, "[:punct:]", "")
+token_train$ID <- str_replace_all(token_train$ID, "[:punct:]", "")
+
 ```
 
 2d. Now that the nitty gritty details of the different data sets are fixed, we want to make a subset of each data set only containig the variables that we wish to use in the final data set.
+
 For this we use the tidyverse package dplyr, which contains the function select(). 
 
 The variables we need are: Child.ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd, types_MOT, types_CHI, tokens_MOT, tokens_CHI.
@@ -115,6 +146,12 @@ It would be smart to rename the last two into something you can remember (i.e. n
 
 ```{r}
 
+demo_sub <- select(demo_train, c(ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw))
+
+lu_sub <- select(lu_train, c(ID, Visit, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd))
+
+token_sub <- select(token_train, c(ID, Visit, types_MOT, types_CHI, tokens_MOT, tokens_CHI))
+
 ```
 
 2e. Finally we are ready to merge all the data sets into just one. 
@@ -122,11 +159,17 @@ Tip: Look up "joins" in R for data science, or google "How to merge datasets in 
 Tip: Joining / merging only works for two data frames at the time.
 
 ```{r}
+p_load(plyr)
+
+#Using join to merge to three datasets by ID and Visit
+train <- join(demo_sub, lu_sub)
+train <- join(train, token_sub)
 
 ```
 
 Are we done?
 If you look at the data set now, you'll se a lot of NA's in the variables ADOS, nonVerbalIQ (MullenRaw) and verbalIQ (ExpressiveLangRaw). These measures were not taken at all visits. Additionally, we only want these measures for the first visit (Riccardo will explain why in class).
+
 So let's make sure that we select only these variables as collected during the first visit for each child and repeat these values throughout all other visits.
 
 * A way to get around this in R, is to make a subset of the data containing only the values we are interested in, i.e. the values at visit 1. We only want to keep the relevant variables in this data set, i.e the ones which values are to be repeated. Either the the subset() function or select() and filter() can be used here. Solve this issue with both functions to familiarize yourself with these useful functions. N.B. save the subset of the dataset as a new dataset, do not overwrite the old one.
@@ -135,10 +178,38 @@ So let's make sure that we select only these variables as collected during the f
 
 * Once you've changed the names, the subset can be merged to the final data set, and the score at the 1st visit in each variable will be spread to all 6.
 
-* Lastly, there are too many unneccesary variables in the data set by now. Use the select() to choose only the variables you want in the data (e.g. remove the old ADOS, verbal and nonVerbal IQ variables, so you will not get confused later on) and define the order of the variables. Hint: You want the child identifier, followed by diagnosis, followed by demographic, cognitive and clinical features, followed by indexes of linguistic performance (utterances lenghts, types and tokens of words).
+* Lastly, there are too many unneccesary variables in the data set by now. Use the select() to choose only the variables you want in the data (e.g. remove the old ADOS, verbal and nonVerbal IQ variables, so you will not get confused later on) and define the order of the variables. 
+
+Hint: You want the child identifier, followed by diagnosis, followed by demographic, cognitive and clinical features, followed by indexes of linguistic performance (utterances lenghts, types and tokens of words).
 
 
 ```{r}
+
+
+#Using subset to make a dataset only consisting of the data from visit 1
+subset_train <- subset(train, Visit == 1, select = c(ADOS, MullenRaw, ExpressiveLangRaw))
+
+#Using select and then filter to make a dataset only consisting of the data from visit 1
+select_train <- select(train, c(Visit, ADOS, MullenRaw, ExpressiveLangRaw))
+select_train <- filter(select_train, Visit == 1)
+
+
+#Changing the names in the new data set 
+subset_train <- rename.vars(subset_train, "ADOS", "ADOS1", info=T)
+subset_train <- rename.vars(subset_train, "MullenRaw", "MullenRaw1", info=T)
+subset_train <- rename.vars(subset_train, "ExpressiveLangRaw", "ExpressiveLangRaw1", info=T)
+
+select_train <- rename.vars(select_train, c("ADOS", "MullenRaw", "ExpressiveLangRaw"), c("ADOS1", "MullenRaw1", "ExpressiveLangRaw1"))
+
+
+#Merging the two datasets using join 
+train <- merge(train, subset_train)
+
+##Hint: You want the child identifier, followed by diagnosis, followed by demographic, cognitive and clinical features, followed by indexes of linguistic performance (utterances lenghts, types and tokens of words).
+
+
+#Using select to make a clean dataset with variables in the right order
+clean_train <- select(train, c(ID, Diagnosis, Visit, Gender, Age, Ethnicity,  ADOS1, MullenRaw1, ExpressiveLangRaw1, CHI_MLU, MOT_MLU, CHI_LUstd, MOT_LUstd, types_CHI, types_MOT,  tokens_CHI, tokens_MOT))
 
 
 ```
@@ -150,9 +221,30 @@ Now, we are almost ready to start analysing the data. However, here are some add
 Tip: You will probably need to turn it into a factor first, then a number
 Tip: google "R how to convert character to integer" or look up the as.??? functions
 
-* In order to make it easier to work with this nice, clean dataset in the future, it is practical to make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
+* In order to make it easier to work with this nice, clean dataset in the future, it is practical to make sure the variables have sensible values. E.g. right now gender is marked 1 and 2, but in two weeks you will not be able to remember, which gender were connected to which number, so change the values from 1 and 2 to F and M in the gender variable. 
+
+For the same reason, you should also change the values of Diagnosis from A and B to ASD (autism spectrum disorder) and TD (typically developing). 
+
+Tip: Try taking a look at ifelse(), or google "how to rename levels in R".
 
 ```{r}
+
+#Making the child anonymous
+clean_train$ID <- as.factor(clean_train$ID)
+clean_train$ID <- as.numeric(clean_train$ID)
+
+
+#Turning the 1s and 2s into M and F in the gender variable using the long way
+clean_train$Gender <- as.character(clean_train$Gender)
+clean_train$Gender[clean_train$Gender == "1"] <- "F" 
+clean_train$Gender[clean_train$Gender == "2"] <- "M"
+clean_train$Gender <- as.factor(clean_train$Gender)
+
+###clean_train$Gender <- ifelse(clean_train$Gender == "1", "F", "M")
+
+#Turning the As and Bs into ADS and TD in the diagnosis variable using ifelse (short way)
+clean_train$Diagnosis <- ifelse(clean_train$Diagnosis == "A", "ASD", "TD")
+
 
 ```
 
@@ -160,6 +252,9 @@ Tip: google "R how to convert character to integer" or look up the as.??? functi
 Write the data set into a csv file. 
 
 ```{r}
+
+#Making a csv. file named LanguageASD.csv to WD
+write.csv(clean_train, file = "LanguageASD.csv")
 
 ```
 
@@ -173,9 +268,25 @@ USING FILTER
 List all kids who:
 1. have a mean length of utterance (across all visits) of more than 2.7 morphemes.
 2. have a mean length of utterance of less than 1.5 morphemes at the first visit
-3. have not completed all trials. Tip: Use pipes `%>%` to solve this
+3. have not completed all trials. 
+
+Tip: Use pipes `%>%` to solve this
 
 ```{r}
+#1. 
+clean_train %>%   
+  filter(CHI_MLU > 2.7)
+
+#2
+clean_train %>%
+  filter(CHI_MLU < 1.5, Visit == 1)
+  
+#3
+#Filtering all kids that have a visit with NA values (since in MLU, NA is in all)
+clean_train %>%
+  group_by(ID) %>%
+  filter(is.na(CHI_MLU)) %>%
+  summarise(n())
 
 
 ```
@@ -188,6 +299,16 @@ USING ARRANGE
 
 ```{r}
 
+#1
+#Kids who produced the most words on the 6th visit
+clean_train %>% filter(Visit == 6) %>%
+  arrange(desc(tokens_CHI))
+
+#2
+#Kids who produced the least amount of words on the 1st visit.
+clean_train %>% filter(Visit == 1) %>%
+  arrange(tokens_CHI)
+
 
 ```
 
@@ -198,6 +319,16 @@ USING SELECT
 
 ```{r}
 
+#1 (using subset function)
+ASD_CHI_data <- subset(clean_train, Diagnosis == "ASD", select=c(Diagnosis, CHI_MLU, tokens_CHI))
+
+
+#2(let me show you)
+
+clean_train %>% select(c(ID, Visit, Visit, Visit, Diagnosis, Visit, ID))
+#Still only three columns in my dataset
+
+
 ```
 
 
@@ -207,6 +338,15 @@ USING MUTATE, SUMMARISE and PIPES
 3. The solution to task above enables us to assess the average amount of words produced by each child. Why don't we just use these average values to describe the language production of the children? What is the advantage of keeping all the data?
 
 ```{r}
+
+#1
+clean_w_mean <- clean_train %>% 
+  group_by(ID) %>%
+  mutate(mean_words = mean(tokens_CHI, na.rm = T))
+
+#2
+clean_w_mean <- clean_w_mean %>%
+  group_by(Visit) %>% mutate(mean_day = mean(mean_words, na.rm = T))
 
 
 ```
