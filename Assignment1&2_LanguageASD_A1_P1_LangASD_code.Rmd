@@ -1,7 +1,7 @@
 ---
-title: "A1_P1_Student"
-author: "Riccardo Fusaroli"
-date: "01/07/2018"
+title: "Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD)"
+author: "Nanna Bernth Davidsen"
+date: "12/09/2018"
 output: html_document
 ---
 
@@ -108,6 +108,8 @@ Tip: There is a package called stringr, which will be very handy for manipulatin
 lu_train$Visit <- str_extract(lu_train$Visit, "[1-6]")
 token_train$Visit <- str_extract(lu_train$Visit, "[1-6]")
 
+#Here one could just use the [:digit:] expression instead or [0-9]. 
+
 
 ```
 
@@ -126,6 +128,8 @@ Tip: You will have to do identical work for both data sets, so to save time on t
 demo_train$ID <- str_replace_all(demo_train$ID, "[:punct:]", "")
 lu_train$ID <- str_replace_all(lu_train$ID, "[:punct:]", "")
 token_train$ID <- str_replace_all(token_train$ID, "[:punct:]", "")
+
+#Some groups used str_detect to extract all ID's with lower letters + str_replace and $. to remove dots at the end of the ID (to keep the dots in the "A.A, A.D" IDs)
 
 ```
 
@@ -151,6 +155,8 @@ demo_sub <- select(demo_train, c(ID, Visit, Ethnicity, Diagnosis, Gender, Age, A
 lu_sub <- select(lu_train, c(ID, Visit, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd))
 
 token_sub <- select(token_train, c(ID, Visit, types_MOT, types_CHI, tokens_MOT, tokens_CHI))
+
+#One could rename the variables suggested to make it easier to remember them. 
 
 ```
 
@@ -274,13 +280,18 @@ Tip: Use pipes `%>%` to solve this
 
 ```{r}
 #1. 
-clean_train %>%   
-  filter(CHI_MLU > 2.7)
+unique(clean_train %>%   
+  filter(CHI_MLU > 2.7))
+
 
 #2
-clean_train %>%
-  filter(CHI_MLU < 1.5, Visit == 1)
+unique(clean_train %>%
+  filter(CHI_MLU < 1.5, Visit == 1))
   
+detach(package:plyr)
+library(dplyr)
+
+
 #3
 #Filtering all kids that have a visit with NA values (since in MLU, NA is in all)
 clean_train %>%
@@ -304,6 +315,9 @@ USING ARRANGE
 clean_train %>% filter(Visit == 6) %>%
   arrange(desc(tokens_CHI))
 
+  #head(1)
+#Using head (or slice) to extract the KID who produced most words
+
 #2
 #Kids who produced the least amount of words on the 1st visit.
 clean_train %>% filter(Visit == 1) %>%
@@ -323,8 +337,7 @@ USING SELECT
 ASD_CHI_data <- subset(clean_train, Diagnosis == "ASD", select=c(Diagnosis, CHI_MLU, tokens_CHI))
 
 
-#2(let me show you)
-
+#2 Trying to call the same variable multiple times 
 clean_train %>% select(c(ID, Visit, Visit, Visit, Diagnosis, Visit, ID))
 #Still only three columns in my dataset
 
@@ -352,9 +365,11 @@ clean_w_mean <- clean_w_mean %>%
 clean_w_mean <- clean_w_mean %>%
   group_by(Visit) %>% mutate(mean_visit = mean(mean_words, na.rm = T))
 
-#3
-
-#SVAR PÅ GENNEMSNIT
-
 
 ```
+
+
+The average is relevant to compare the kids against each other, however all the data point are relevant still to measure if the mean is a good solution to represent the data and to look at progress or just general development in the word use of the kids. 
+
+
+
