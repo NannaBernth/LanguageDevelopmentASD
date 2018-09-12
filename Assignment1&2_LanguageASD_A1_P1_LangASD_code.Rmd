@@ -196,8 +196,8 @@ Hint: You want the child identifier, followed by diagnosis, followed by demograp
 subset_train <- subset(train, Visit == 1, select = c(ADOS, MullenRaw, ExpressiveLangRaw))
 
 #Using select and then filter to make a dataset only consisting of the data from visit 1
-select_train <- select(train, c(Visit, ADOS, MullenRaw, ExpressiveLangRaw))
-select_train <- filter(select_train, Visit == 1)
+#select_train <- select(train, c(Visit, ADOS, MullenRaw, ExpressiveLangRaw))
+#select_train <- filter(select_train, Visit == 1)
 
 
 #Changing the names in the new data set 
@@ -205,11 +205,12 @@ subset_train <- rename.vars(subset_train, "ADOS", "ADOS1", info=T)
 subset_train <- rename.vars(subset_train, "MullenRaw", "MullenRaw1", info=T)
 subset_train <- rename.vars(subset_train, "ExpressiveLangRaw", "ExpressiveLangRaw1", info=T)
 
-select_train <- rename.vars(select_train, c("ADOS", "MullenRaw", "ExpressiveLangRaw"), c("ADOS1", "MullenRaw1", "ExpressiveLangRaw1"))
+#select_train <- rename.vars(select_train, c("ADOS", "MullenRaw", "ExpressiveLangRaw"), c("ADOS1", "MullenRaw1", "ExpressiveLangRaw1"))
 
 
 #Merging the two datasets using join 
-train <- merge(train, subset_train)
+train <- join(train, subset_train)
+
 
 ##Hint: You want the child identifier, followed by diagnosis, followed by demographic, cognitive and clinical features, followed by indexes of linguistic performance (utterances lenghts, types and tokens of words).
 
