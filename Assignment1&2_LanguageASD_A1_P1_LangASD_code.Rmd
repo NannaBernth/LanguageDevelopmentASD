@@ -193,7 +193,7 @@ Hint: You want the child identifier, followed by diagnosis, followed by demograp
 
 
 #Using subset to make a dataset only consisting of the data from visit 1
-subset_train <- subset(train, Visit == 1, select = c(ADOS, MullenRaw, ExpressiveLangRaw))
+subset_train <- subset(train, Visit == 1, select = c(ID, ADOS, MullenRaw, ExpressiveLangRaw))
 
 #Using select and then filter to make a dataset only consisting of the data from visit 1
 #select_train <- select(train, c(Visit, ADOS, MullenRaw, ExpressiveLangRaw))
