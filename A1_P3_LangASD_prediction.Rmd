@@ -1,0 +1,569 @@
+---
+title: "Assignment 1 - Language Development in ASD - part 3"
+author: "Riccardo Fusaroli"
+date: "August 10, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+locpath= "C:/Users/nanna/OneDrive - Aarhus universitet/3. Semester/Experimental Methods 3/LanguageDevelopmentASD"
+
+setwd(locpath)
+getwd()
+
+
+library(pacman)
+p_load(lmerTest, pastecs, ggplot2, tidyverse, gdata, MuMIn, effects, stringr)
+
+
+```
+
+## Welcome to the third exciting part of the Language Development in ASD exercise
+
+In this exercise we will delve more in depth with different practices of model comparison and model selection, by first evaluating your models from last time, then learning how to cross-validate models and finally how to systematically compare models.
+
+N.B. There are several datasets for this exercise, so pay attention to which one you are using!
+
+1. The (training) dataset from last time (the awesome one you produced :-) ).
+
+2. The (test) datasets on which you can test the models from last time:
+
+* Demographic and clinical data: https://www.dropbox.com/s/ra99bdvm6fzay3g/demo_test.csv?dl=1
+* Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=1
+* Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=1
+
+```{r}
+
+#Loading the new data 
+
+demo_test <- read.csv("demo_test.csv")
+  
+token_test <- read.csv("token_test.csv")
+
+lu_test <- read.csv("lu_test.csv")
+
+```
+
+
+
+```{r}
+#Renaming the data sets to have the same headline for the subject = ID
+
+demo_test <- rename.vars(demo_test, "Child.ID", "ID", info=T)
+lu_test <- rename.vars(lu_test, "SUBJ", "ID", info=T)
+token_test <- rename.vars(token_test, "SUBJ", "ID", info=T)
+
+
+#Renaming the visit to have the same 
+lu_test <- rename.vars(lu_test, "VISIT", "Visit", info=T)
+token_test <- rename.vars(token_test, "VISIT", "Visit", info=T)
+
+#Homogeneize the way visit is reported, use of stringr to extract only numbers
+lu_test$Visit <- str_extract(lu_test$Visit, "[1-6]")
+token_test$Visit <- str_extract(lu_test$Visit, "[1-6]")
+
+
+#Removing all punctuations in the ID column 
+demo_test$ID <- str_replace_all(demo_test$ID, "[:punct:]", "")
+lu_test$ID <- str_replace_all(lu_test$ID, "[:punct:]", "")
+token_test$ID <- str_replace_all(token_test$ID, "[:punct:]", "")
+
+#Selecting the variables needed
+demo_test_sub <- select(demo_test, c(ID, Visit, Ethnicity, Diagnosis, Gender, Age, ADOS,  MullenRaw, ExpressiveLangRaw))
+
+lu_test_sub <- select(lu_test, c(ID, Visit, MOT_MLU, MOT_LUstd, CHI_MLU, CHI_LUstd))
+
+token_test_sub <- select(token_test, c(ID, Visit, types_MOT, types_CHI, tokens_MOT, tokens_CHI))
+
+
+library(plyr)
+#Using join to merge to three datasets by ID and Visit
+test <- join(demo_test_sub, lu_test_sub)
+test <- join(test, token_test_sub)
+
+
+#Ados for only visit 1
+#Using subset to make a dataset only consisting of the data from visit 1
+subset_test <- subset(test, Visit == 1, select = c(ID, ADOS, MullenRaw, ExpressiveLangRaw))
+
+#Changing the names in the new data set 
+subset_test <- rename.vars(subset_test, c("ADOS", "MullenRaw", "ExpressiveLangRaw"), c("ADOS1", "NonverbalIQ", "VerbalIQ"))
+
+#Merging the two datasets using join 
+test <- join(test, subset_test)
+
+#Using select to make a clean dataset with variables in the right order
+clean_test <- select(test, c(ID, Diagnosis, Visit, Gender, Age, Ethnicity,  ADOS1, NonverbalIQ, VerbalIQ, CHI_MLU, MOT_MLU, CHI_LUstd, MOT_LUstd, types_CHI, types_MOT,  tokens_CHI, tokens_MOT))
+
+#Anonymous kids
+clean_test$ID <- as.factor(clean_test$ID)
+clean_test$ID <- as.numeric(clean_test$ID)
+
+#Turning the 1s and 2s into M and F in the gender variable
+clean_test$Gender <- ifelse(clean_test$Gender == "1", "M", "F")
+
+#Turning the As and Bs into ADS and TD in the diagnosis variable using ifelse (short way)
+clean_test$Diagnosis <- ifelse(clean_test$Diagnosis == "A", "ASD", "TD")
+
+#Making a csv. file named LanguageASD.csv to WD
+write.csv(clean_test, file = "LanguageASD_test.csv")
+
+```
+
+#######Start loading from here#######
+
+
+
+Loading CSV's
+
+```{r}
+data = read.csv("LanguageASD.csv")
+data_test = read.csv("LanguageASD_test.csv")
+```
+
+Changing names in the traning data
+```{r}
+data <- rename.vars(data, "Diagnosis", "diagnosis")
+data <- rename.vars(data, "Gender", "gender")
+data <- rename.vars(data, "Age", "age")
+data <- rename.vars(data, "Ethnicity", "ethnicity")
+data <- rename.vars(data, "Visit", "visit")
+data <- rename.vars(data, "ADOS1", "ados1")
+data <- rename.vars(data, "MullenRaw1", "nonverbalIQ")
+data <- rename.vars(data, "ExpressiveLangRaw1", "verbalIQ")
+
+data <- data[-c (1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
+
+```
+
+Changing names in the test data
+```{r}
+data_test <- rename.vars(data_test, "Diagnosis", "diagnosis")
+data_test <- rename.vars(data_test, "Gender", "gender")
+data_test <- rename.vars(data_test, "Age", "age")
+data_test <- rename.vars(data_test, "Ethnicity", "ethnicity")
+data_test <- rename.vars(data_test, "Visit", "visit")
+data_test <- rename.vars(data_test, "ADOS1", "ados1")
+data_test <- rename.vars(data_test, "NonverbalIQ", "nonverbalIQ")
+data_test <- rename.vars(data_test, "VerbalIQ", "verbalIQ")
+
+```
+
+### Exercise 1) Testing model performance
+
+How did your models from last time perform? 
+
+In this exercise you have to compare the results on the training data () and on the test data. Report both of them. 
+Compare them. 
+
+Discuss why they are different.
+
+
+- recreate the models you chose last time (just write the model code again and apply it to your training data (from the first assignment))
+
+- calculate performance of the model on the training data: root mean square error is a good measure. (Tip: google the function rmse())
+
+- create the test dataset (apply the code from assignment 1 part 1 to clean up the 3 test datasets)
+
+- test the performance of the models on the test data (Tips: google the functions "predict()")
+
+
+- optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
+
+
+formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
+
+```{r}
+#data$CHI_MLU <- data$CHI_MLU[!is.na(data$CHI_MLU)]
+p_load(Metrics)
+
+
+#Removing NAs in data sets
+data <- na.omit(data, cols = "CHI_MLU")
+data_test <- na.omit(data_test, cols = "CHI_MLU")
+
+
+#Using our best model from the last assignment
+model_train <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+
+model_test <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data_test, REML=FALSE)
+
+#Root mean square error on how the model perform on the traning data
+rmse(data$CHI_MLU, predict(model_train))
+##[1] 0.2757737
+
+
+#Very bad prediction on the test set 
+rmse(data_test$CHI_MLU,predict(model_train, data_test))
+##[1] 0.7934384
+
+
+```
+
+
+[HERE GOES YOUR ANSWER]
+
+We observe that the accuracy of the predictions decreases a lot when the model is applied to the new (test) data. The root mean squared error goes from 0.28 to 0.79 which is a very large difference. 
+
+
+### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
+
+One way to reduce bad surprises when testing a model on new data is to train the model via cross-validation. 
+
+In this exercise you have to use cross-validation to calculate the predictive error of your models and use this predictive error to select the best possible model.
+
+- Use cross-validation to compare your model from last week with the basic model 
+(Child MLU as a function of Time and Diagnosis, and don't forget the random effects!)
+
+
+- (Tips): google the function "createFolds";  loop through each fold, train both models on the other folds and test them on the fold)
+
+
+Which model is better at predicting new data: 
+
+1) The one you selected last week or
+2) the one chosen via cross-validation this week?
+
+- Test both of them on the test data.
+
+- Report the results and comment on them.
+
+```{r}
+p_load(vtreat)
+
+#Creating the basic model
+basic <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML = F)
+
+#Creating our model from last week
+bestmodel <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+
+```
+
+
+
+```{r}
+###Cross validation
+
+# Get the number of rows in data
+nRows <- nrow(data)
+
+# Implement the 5-fold cross-fold plan
+splitPlan <- kWayCrossValidation(nRows, 5, NULL, NULL)
+
+# Examine the split plan
+#str(splitPlan)
+
+
+
+# Run the 5-fold cross validation plan from splitPlan on basic model
+k <- 5 # Number of folds
+
+#Setting the variable for the predictive values from the CV
+data$pred.cv.lm <- 0 
+
+#Creating the loop
+
+for(i in 1:k) {
+  split <- splitPlan[[i]]
+  model <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data[split$train, ], REML = F)
+  data$pred.cv.lm[split$app] <- predict(model, newdata = data[split$app, ])
+}
+
+
+#RMSE for basic model
+rmse(data$CHI_MLU, predict(basic))
+##[1] 0.3380725
+
+
+#Rmse of the cross-validation predictions
+rmse(data$pred.cv.lm, data$CHI_MLU)
+##[1] 0.5139293
+
+
+
+
+
+
+# Run the 5-fold cross validation plan from splitPlan on our best model
+data$pred.cv.best <- 0 
+
+for(i in 1:k) {
+  split1 <- splitPlan[[i]]
+  model2 <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data[split1$train, ], REML=FALSE)
+  data$pred.cv.best[split1$app] <- predict(model2, newdata = data[split1$app, ])
+  
+}
+
+
+# Get the rmse of the full model's predictions
+rmse(data$CHI_MLU, predict(bestmodel))
+##[1] 0.2757737
+
+# Get the rmse of the cross-validation predictions
+rmse(data$pred.cv.best, data$CHI_MLU)
+##[1] 0.4574592
+
+
+
+
+
+#How does the model predict the test data in reality?
+
+rmse(predict(basic, data_test), data_test$CHI_MLU)
+#[1] 1.068573
+
+
+rmse(predict(bestmodel, data_test), data_test$CHI_MLU)
+#[1] 0.7934384
+
+
+```
+
+
+
+Another way to do CV
+
+The basic model
+```{r}
+p_load("cvTools")
+
+#k <- 10 #the number of folds
+
+#Crate the folds
+folds <- cvFolds(NROW(data), K=k)
+
+
+
+#Set up column in dataframe
+data$cv.pred <- rep(0,nrow(data))
+
+
+#The loop
+for(i in 1:k){
+  train <- data[folds$subsets[folds$which != i], ] #Set the training set
+  validation <- data[folds$subsets[folds$which == i], ] #Set the validation set
+
+  newlm <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = train, REML = F) 
+  #Get your new linear model (just fit on the train data)
+    newpred <- predict(newlm,newdata=validation) 
+  #Get the predicitons for the validation set (from the model just fit on the train data)
+
+  data[folds$subsets[folds$which == i], ]$cv.pred <- newpred #Put the hold out prediction in the data set for later use
+}
+
+#How does the basic model perform
+rmse(data$cv.pred, data$CHI_MLU)
+
+
+
+```
+
+The "best" model from leat assignment
+```{r}
+
+#preparing a column
+data$cv.pred_best <- rep(0,nrow(data))
+
+
+for(i in 1:k){
+  train <- data[folds$subsets[folds$which != i], ] #Set the training set
+  validation <- data[folds$subsets[folds$which == i], ] #Set the validation set
+
+  newlmer <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = train, REML=FALSE)
+  #Get your new linear model (just fit on the train data)
+  
+  newpred_best <- predict(newlmer, newdata=validation) 
+  #Get the predicitons for the validation set (from the model just fit on the train data)
+
+  data[folds$subsets[folds$which == i], ]$cv.pred_best <- newpred_best 
+  #Put the hold out prediction in the data set for later use
+}
+
+
+rmse(data$cv.pred_best, data$CHI_MLU)
+
+
+
+
+```
+
+
+- Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
+
+
+- Bonus Question 1: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
+
+- Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
+
+```{r}
+# Implement the 5-fold cross-fold plan
+splitPlan <- kWayCrossValidation(nRows, 5, NULL, NULL)
+
+
+
+k2 <- 5
+data$pred.cv.create <- 0 
+
+for(i in 1:k2) {
+  split.create <- splitPlan[[i]]
+  model.create <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + verbalIQ + MOT_MLU + types_CHI + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data[split.create$train, ], REML=FALSE)
+  data$pred.cv.create[split.create$app] <- predict(model.create, newdata = data[split.create$app, ])
+
+}
+
+rmse(data$pred.cv.create, data$CHI_MLU)
+rmse(predict(model.create, data_test), data_test$CHI_MLU)
+  
+
+###We want to have our cake and eat it as well 
+#It is a good idea to split in 5 parts (why 5 = )
+
+#We want to make a loop For (F in Folds) select(ID in F)
+#Take all the kids that a not in the F fold, and that i our train data set. 
+#N=1 in the beginning, Rmse(train[n] =
+#N = N+1 
+
+```
+
+
+[HERE GOES YOUR ANSWER]
+
+### Exercise 3) Assessing the single child
+
+Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
+
+Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
+```{r}
+#Find Bernie before the data was made anonymous
+filter(test, ID == "Bernie")
+
+#filter out Bernie form the data_test dataframe
+bernie <- filter(data_test, ados1 == "7", verbalIQ == "28")
+
+
+```
+
+
+You want to evaluate:
+
+- how does the child fare in ChildMLU compared to the average TD child at each visit? 
+
+Define the distance in terms of absolute difference between this Child and the average TD.
+
+(Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group for each parameter in the model as X1, X2, etc.).
+
+```{r}
+summary(bestmodel)
+
+
+
+TD_average <- data %>% 
+  filter(diagnosis == "TD")
+
+TD_average$visit <- as.numeric(TD_average$visit)
+
+TD_average <- TD_average %>%
+  group_by(visit) %>%
+  summarise(mean_TD = mean(CHI_MLU, na.rm =T))
+
+TD1 <- -0.073966 + 0.450687*1 +  -0.035911*1 + -0.010203*adosaverage 
+
+
+
+
+CHI_MLU ~ 
+intercept = -0.073966 
+visit =  0.450687*1
+I(visit^2) = -0.035911*
+ados1 =  -0.010203
+MOT_MLU = 0.286858
+1 + visit = -0.073966 + 0.15430
+I(visit^2) =  0.00221
+
+
+
+
+
+```
+
+
+
+- how does the child fare compared to the model predictions at Visit 6? 
+
+```{r}
+
+data$predictions <- predict(bestmodel)
+
+Visit_6_pred <- data %>% 
+  filter(visit == "6")
+
+Visit_6_pred <- Visit_6_pred %>%
+  group_by(visit) %>%
+  summarise(mean = mean(predictions))
+
+#Mean of visit six
+##2.451957
+
+#Bernie visit 6
+##3.448413
+
+
+
+```
+
+
+Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+####Not sure about this at all
+
+```{r}
+#Creating our model from last week
+
+bernie$predictions <- predict(bestmodel, bernie)
+
+bernie$expectation <- (bernie$CHI_MLU - bernie$predictions)
+bernie$expectation
+
+##[1] -0.009466836 -0.679125251 -0.146376680 -0.605950913 -0.474317351  0.103381876
+
+
+
+
+#Plotting Bernies predictions versus actualt performance 
+theme_set(theme_bw())
+ggplot(data = bernie, aes(x = visit)) + geom_smooth(aes(y=CHI_MLU), colour="red", method = "lm", formula = y ~ poly(x, 2), se = F) + 
+         geom_smooth(aes(y=predictions), colour="green", method = "lm", formula = y ~ poly(x, 2), se = F) +
+  xlab('Number of Visit') +
+  ylab("Bernie's Mean Lenght of Utterance")
+
+```
+
+
+
+[HERE GOES YOUR ANSWER]
+
+
+
+As for Bernie compared to the average TD ...
+
+At visit 6, the prediction of the model is a ChildMLU of 2.45. Bernie has a ChildMLU at 3.45. Bernie is better then the predicted values. 
+
+When using the model to calculate the predictions on Bernies data only we see that Bernie performed close to expectations at the first visit but in general below expectations at the first 5 visits. However, at visit 6 Bernie performed above expectations. 
+
+
+
+### OPTIONAL: Exercise 4) Model Selection via Information Criteria
+Another way to reduce the bad surprises when testing a model on new data is to pay close attention to the relative information criteria between the models you are comparing. Let's learn how to do that!
+
+Re-create a selection of possible models explaining ChildMLU (the ones you tested for exercise 2, but now trained on the full dataset and not cross-validated).
+
+Then try to find the best possible predictive model of ChildMLU, that is, the one that produces the lowest information criterion.
+
+- Bonus question for the optional exercise: are information criteria correlated with cross-validated RMSE? That is, if you take AIC for Model 1, Model 2 and Model 3, do they co-vary with their cross-validated RMSE?
+
+### OPTIONAL: Exercise 5): Using Lasso for model selection
+
+Welcome to the last secret exercise. If you have already solved the previous exercises, and still there's not enough for you, you can expand your expertise by learning about penalizations. Check out this tutorial: http://machinelearningmastery.com/penalized-regression-in-r/ and make sure to google what penalization is, with a focus on L1 and L2-norms. Then try them on your data!
+
