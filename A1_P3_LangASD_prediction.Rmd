@@ -2,7 +2,9 @@
 title: "Assignment 1 - Language Development in ASD - part 3"
 author: "Riccardo Fusaroli"
 date: "August 10, 2018"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -34,7 +36,7 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 * Utterance Length data: https://www.dropbox.com/s/uxtqqzl18nwxowq/LU_test.csv?dl=1
 * Word data: https://www.dropbox.com/s/1ces4hv8kh0stov/token_test.csv?dl=1
 
-```{r}
+```{r, include=FALSE}
 
 #Loading the new data 
 
@@ -48,7 +50,7 @@ lu_test <- read.csv("lu_test.csv")
 
 
 
-```{r}
+```{r, include=FALSE}
 #Renaming the data sets to have the same headline for the subject = ID
 
 demo_test <- rename.vars(demo_test, "Child.ID", "ID", info=T)
@@ -118,13 +120,13 @@ write.csv(clean_test, file = "LanguageASD_test.csv")
 
 Loading CSV's
 
-```{r}
+```{r, include=FALSE}
 data = read.csv("LanguageASD.csv")
 data_test = read.csv("LanguageASD_test.csv")
 ```
 
 Changing names in the traning data
-```{r}
+```{r, include=FALSE}
 data <- rename.vars(data, "Diagnosis", "diagnosis")
 data <- rename.vars(data, "Gender", "gender")
 data <- rename.vars(data, "Age", "age")
@@ -139,7 +141,7 @@ data <- data[-c (1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
 ```
 
 Changing names in the test data
-```{r}
+```{r, include=FALSE}
 data_test <- rename.vars(data_test, "Diagnosis", "diagnosis")
 data_test <- rename.vars(data_test, "Gender", "gender")
 data_test <- rename.vars(data_test, "Age", "age")
@@ -150,6 +152,7 @@ data_test <- rename.vars(data_test, "NonverbalIQ", "nonverbalIQ")
 data_test <- rename.vars(data_test, "VerbalIQ", "verbalIQ")
 
 ```
+
 
 ### Exercise 1) Testing model performance
 
@@ -175,8 +178,7 @@ Discuss why they are different.
 
 formatting tip: If you write code in this document and plan to hand it in, remember to put include=FALSE in the code chunks before handing in.
 
-```{r}
-#data$CHI_MLU <- data$CHI_MLU[!is.na(data$CHI_MLU)]
+```{r, include=FALSE}
 p_load(Metrics)
 
 
@@ -185,27 +187,27 @@ data <- na.omit(data, cols = "CHI_MLU")
 data_test <- na.omit(data_test, cols = "CHI_MLU")
 
 
-#Using our best model from the last assignment
-model_train <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+#The best model from the last assignment
+model_train <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3)+ ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2)+ I(visit^3) | ID), data = data, REML=FALSE)
 
-model_test <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data_test, REML=FALSE)
+
 
 #Root mean square error on how the model perform on the traning data
 rmse(data$CHI_MLU, predict(model_train))
-##[1] 0.2757737
+##[1] 0.2529832
 
 
 #Very bad prediction on the test set 
 rmse(data_test$CHI_MLU,predict(model_train, data_test))
-##[1] 0.7934384
+##[1] 0.780272
 
 
 ```
 
+Our cubic model from last assignment that we chose as the best model (pseudocode: mean length of utterance ~ visit + visit^2 + ados + mothers mlu + (visit + visit^2 + visit^3 | ID)) produces a root mean square error of 0.25. The root mean square error increases quite a lot when applying the model on the test set. It goes from 0.25 to 0.78.
 
-[HERE GOES YOUR ANSWER]
+Our model is basically bad at predicting, generalizing to the population. It is possibly a sign of overfitting to the initial train data set. The explanatory power is high but the predictive power is weak. 
 
-We observe that the accuracy of the predictions decreases a lot when the model is applied to the new (test) data. The root mean squared error goes from 0.28 to 0.79 which is a very large difference. 
 
 
 ### Exercise 2) Model Selection via Cross-validation (N.B: ChildMLU!)
@@ -213,6 +215,7 @@ We observe that the accuracy of the predictions decreases a lot when the model i
 One way to reduce bad surprises when testing a model on new data is to train the model via cross-validation. 
 
 In this exercise you have to use cross-validation to calculate the predictive error of your models and use this predictive error to select the best possible model.
+
 
 - Use cross-validation to compare your model from last week with the basic model 
 (Child MLU as a function of Time and Diagnosis, and don't forget the random effects!)
@@ -227,25 +230,22 @@ Which model is better at predicting new data:
 2) the one chosen via cross-validation this week?
 
 - Test both of them on the test data.
-
 - Report the results and comment on them.
 
-```{r}
+``` {r, include=FALSE}
 p_load(vtreat)
 
 #Creating the basic model
 basic <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML = F)
 
 #Creating our model from last week
-bestmodel <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+bestmodel <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3)+ ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2)+ I(visit^3) | ID), data = data, REML=FALSE)
 
 ```
 
 
-
-```{r}
-###Cross validation
-
+Cross Validation 
+```{r, include=FALSE}
 # Get the number of rows in data
 nRows <- nrow(data)
 
@@ -255,8 +255,6 @@ splitPlan <- kWayCrossValidation(nRows, 5, NULL, NULL)
 # Examine the split plan
 #str(splitPlan)
 
-
-
 # Run the 5-fold cross validation plan from splitPlan on basic model
 k <- 5 # Number of folds
 
@@ -264,7 +262,6 @@ k <- 5 # Number of folds
 data$pred.cv.lm <- 0 
 
 #Creating the loop
-
 for(i in 1:k) {
   split <- splitPlan[[i]]
   model <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data[split$train, ], REML = F)
@@ -276,13 +273,9 @@ for(i in 1:k) {
 rmse(data$CHI_MLU, predict(basic))
 ##[1] 0.3380725
 
-
 #Rmse of the cross-validation predictions
 rmse(data$pred.cv.lm, data$CHI_MLU)
-##[1] 0.5139293
-
-
-
+##[1] 0.5058554
 
 
 
@@ -299,34 +292,27 @@ for(i in 1:k) {
 
 # Get the rmse of the full model's predictions
 rmse(data$CHI_MLU, predict(bestmodel))
-##[1] 0.2757737
+##[1]  0.2529832
 
 # Get the rmse of the cross-validation predictions
 rmse(data$pred.cv.best, data$CHI_MLU)
-##[1] 0.4574592
-
-
-
+##[1] 0.4515496
 
 
 #How does the model predict the test data in reality?
-
 rmse(predict(basic, data_test), data_test$CHI_MLU)
 #[1] 1.068573
 
-
 rmse(predict(bestmodel, data_test), data_test$CHI_MLU)
-#[1] 0.7934384
+#[1] 0.780272
 
 
 ```
 
-
-
-Another way to do CV
+Another way to do CV  - just to check it out
 
 The basic model
-```{r}
+```{r, include=FALSE}
 p_load("cvTools")
 
 #k <- 10 #the number of folds
@@ -357,11 +343,10 @@ for(i in 1:k){
 rmse(data$cv.pred, data$CHI_MLU)
 
 
-
 ```
 
-The "best" model from leat assignment
-```{r}
+The "best" model from last assignment
+```{r, include=FALSE}
 
 #preparing a column
 data$cv.pred_best <- rep(0,nrow(data))
@@ -384,11 +369,18 @@ for(i in 1:k){
 
 rmse(data$cv.pred_best, data$CHI_MLU)
 
-
-
-
 ```
 
+The basic linear model (pseudocode: mean length of utterance ~ visit + diagnosis + (visit | ID)) produces a root mean squared error of only 0.34, when predicting on the training data set. However, when the model is trained with a 5-fold cross validation, the root mean squared error increases to 0.51. 
+
+As already mentioned earlier the cubic model, that we chose to be the best model in the previous assignment (pseudocode: mean length of utterance ~ visit + visit^2 + visit^3 + verbalIQ + ados + mother's MLU (visit + visit^2 + visit^3| ID)) produces a mean squared error of 0.28, when applied to the traning data. As with the linear model, the error increases when the model is trained with a 5-fold cross validation - to 0.46, respectively. 
+
+First of all, this means that the cubic model is still better at predicting the traning data compared to the linear model.
+
+When the two models' cross validation predictions are applied to the actual test data they both turn out to be quite far off. The linear model produces a root mean squared error of 1.07. The cubic model produces a rmse of 0.79. Thus, the cubic model is still performing better on the test data than the linear, however what worse than predicted with the traning data (both with and without cross validation of the model).
+
+
+##Best model 
 
 - Now try to find the best possible predictive model of ChildMLU, that is, the one that produces the best cross-validated results.
 
@@ -397,45 +389,76 @@ rmse(data$cv.pred_best, data$CHI_MLU)
 
 - Bonus Question 2: compare the cross-validated predictive error against the actual predictive error on the test data
 
-```{r}
+```{r, include=FALSE}
 # Implement the 5-fold cross-fold plan
 splitPlan <- kWayCrossValidation(nRows, 5, NULL, NULL)
-
-
 
 k2 <- 5
 data$pred.cv.create <- 0 
 
+
+
+#Model with gender
+
 for(i in 1:k2) {
   split.create <- splitPlan[[i]]
-  model.create <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + verbalIQ + MOT_MLU + types_CHI + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data[split.create$train, ], REML=FALSE)
+  model.create <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2) | ID) + (1| gender), data = data[split.create$train, ], REML=FALSE)
+  
   data$pred.cv.create[split.create$app] <- predict(model.create, newdata = data[split.create$app, ])
 
 }
 
 rmse(data$pred.cv.create, data$CHI_MLU)
 rmse(predict(model.create, data_test), data_test$CHI_MLU)
-  
+#[1] 0.4313872
+#[1] 0.7579469
 
-###We want to have our cake and eat it as well 
-#It is a good idea to split in 5 parts (why 5 = )
 
-#We want to make a loop For (F in Folds) select(ID in F)
-#Take all the kids that a not in the F fold, and that i our train data set. 
-#N=1 in the beginning, Rmse(train[n] =
-#N = N+1 
+data$pred.cv.create1 <- 0 
+
+# Loop using Nanna's random model
+for(i in 1:k) {
+  split.create1 <- splitPlan[[i]]
+  model.create1 <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + verbalIQ + MOT_MLU + types_CHI + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data[split.create1$train, ], REML=FALSE)
+  data$pred.cv.create1[split.create1$app] <- predict(model.create1, newdata = data[split.create1$app, ])
+}
+
+
+rmse(data$CHI_MLU, data$pred.cv.create1)
+rmse(predict(model.create1, data_test), data_test$CHI_MLU)
+#[1] 0.3881532
+#[1] 0.5186018
+
+data$pred.cv.create2 <- 0 
+
+
+# Loop using the p-hacking model from ass. 2
+for(i in 1:k) {
+  split.create2 <- splitPlan[[i]]
+  model.create2 <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data[split.create2$train, ], REML=FALSE)
+  data$pred.cv.create2[split.create2$app] <- predict(model.create2, newdata = data[split.create2$app, ])
+}
+
+rmse(data$CHI_MLU, data$pred.cv.create2)
+rmse(predict(model.create2, data_test), data_test$CHI_MLU)
+#[1] 0.3877639
+#[1] 0.5044019
+
+
 
 ```
 
+Using Cross Validation to calculate accuracy of predictions and using the root mean squared error when applying the actual test data, the best predictive model is our p-hacked model from the previous assignment (pseudocode: Child MLU  ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID). Interestingly, this model does not include ados or diagnosis. 
 
-[HERE GOES YOUR ANSWER]
 
 ### Exercise 3) Assessing the single child
 
 Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
 
 Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
-```{r}
+
+```{r, include=FALSE}
+
 #Find Bernie before the data was made anonymous
 filter(test, ID == "Bernie")
 
@@ -452,105 +475,124 @@ You want to evaluate:
 
 Define the distance in terms of absolute difference between this Child and the average TD.
 
+
 (Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group for each parameter in the model as X1, X2, etc.).
 
-```{r}
-summary(bestmodel)
+```{r, include=FALSE}
 
 
+#Creating the data needed to fill in the parameters for TD kids
 
+#Filtering TD into its own data frama
 TD_average <- data %>% 
   filter(diagnosis == "TD")
 
 TD_average$visit <- as.numeric(TD_average$visit)
 
-TD_average <- TD_average %>%
-  group_by(visit) %>%
-  summarise(mean_TD = mean(CHI_MLU, na.rm =T))
+TD_visit <- TD_average %>% dplyr::group_by(visit) %>%
+  dplyr::summarise(mean_TD = mean(CHI_MLU))
 
-TD1 <- -0.073966 + 0.450687*1 +  -0.035911*1 + -0.010203*adosaverage 
+TD_ados <- TD_average %>%
+  dplyr::group_by(visit) %>%
+  dplyr::summarise(mean_TD = mean(ados1))
+
+TD_motmlu <- TD_average %>%
+  dplyr::group_by(visit) %>%
+  dplyr::summarise(mean_TD = mean(MOT_MLU, na.rm =T))
+
+TD_verbaliq <- TD_average %>%
+  dplyr::group_by(visit) %>%
+  dplyr::summarise(mean_TD = mean(verbalIQ, na.rm =T))
+
+#Summary of bestmodel
+summary(bestmodel)
 
 
-
-
-CHI_MLU ~ 
 intercept = -0.073966 
-visit =  0.450687*1
-I(visit^2) = -0.035911*
+visit =  0.450687
+visit2 = -0.035911
+visit3 = -0.005445
 ados1 =  -0.010203
 MOT_MLU = 0.286858
-1 + visit = -0.073966 + 0.15430
-I(visit^2) =  0.00221
+verbalIQ = 0.060751
+
+
+#Calculate TD ChildMlu using the model 
+TD1 <- intercept + visit*TD_visit$visit[1] + visit2*(TD_visit$visit[1])^2 +visit3*(TD_visit$visit[1])^3 + ados1*TD_ados$mean_TD[1] + MOT_MLU*TD_motmlu$mean_TD[1] + verbalIQ*TD_verbaliq$mean_TD[1]
+
+TD2 <- intercept + visit*TD_visit$visit[2] + visit2*(TD_visit$visit[2])^2 + +visit3*(TD_visit$visit[2])^3 + ados1*TD_ados$mean_TD[2] + MOT_MLU*TD_motmlu$mean_TD[2] + verbalIQ*TD_verbaliq$mean_TD[2]
+
+TD3 <- intercept + visit*TD_visit$visit[3] + visit2*(TD_visit$visit[3])^2 + +visit3*(TD_visit$visit[3])^3 + ados1*TD_ados$mean_TD[3] + MOT_MLU*TD_motmlu$mean_TD[3] + verbalIQ*TD_verbaliq$mean_TD[3]
+
+TD4 <- intercept + visit*TD_visit$visit[4] + visit2*(TD_visit$visit[4])^2 + +visit3*(TD_visit$visit[4])^3 + ados1*TD_ados$mean_TD[4] + MOT_MLU*TD_motmlu$mean_TD[4] + verbalIQ*TD_verbaliq$mean_TD[4]
+
+TD5 <- intercept + visit*TD_visit$visit[5] + visit2*(TD_visit$visit[5])^2 + +visit3*(TD_visit$visit[5])^3 + ados1*TD_ados$mean_TD[5] + MOT_MLU*TD_motmlu$mean_TD[5] + verbalIQ*TD_verbaliq$mean_TD[5]
+
+TD6 <- intercept + visit*TD_visit$visit[6] + visit2*(TD_visit$visit[6])^2 + +visit3*(TD_visit$visit[6])^3 + ados1*TD_ados$mean_TD[6] + MOT_MLU*TD_motmlu$mean_TD[6] + verbalIQ*TD_verbaliq$mean_TD[6]
+
+
+#Turn into dataframe  
+bernie$TD_MLU <- 0
+bernie$TD_MLU <- c(TD1, TD2, TD3, TD4, TD5, TD6)
+
+bernie$TD_MLU
+bernie$CHI_MLU
+
+bernie$TD_raw <- 0
+bernie$TD_raw <- TD_visit$mean_TD
+
+#Difference from Bernie and the models predictions of a TD
+bernie$absolute_dif_model <- bernie$TD_MLU - bernie$CHI_MLU
+
+#Difference from Bernie and the raw TD
+bernie$absolute_dif_raw <- bernie$CHI_MLU - bernie$TD_raw
 
 
 
-
-
-```
-
-
-
-- how does the child fare compared to the model predictions at Visit 6? 
-
-```{r}
-
-data$predictions <- predict(bestmodel)
-
-Visit_6_pred <- data %>% 
-  filter(visit == "6")
-
-Visit_6_pred <- Visit_6_pred %>%
-  group_by(visit) %>%
-  summarise(mean = mean(predictions))
-
-#Mean of visit six
-##2.451957
-
-#Bernie visit 6
-##3.448413
-
-
-
-```
-
-
-Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
-
-####Not sure about this at all
-
-```{r}
-#Creating our model from last week
-
+#Using the model to predict Bernie
 bernie$predictions <- predict(bestmodel, bernie)
 
+bernie_clean <- select(bernie, c(visit, CHI_MLU, predictions, TD_MLU, TD_raw, absolute_dif_model, absolute_dif_raw))
+bernie_clean
+
+
+```
+
+- how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? 
+
+(tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+```{r, include=FALSE}
+
+
 bernie$expectation <- (bernie$CHI_MLU - bernie$predictions)
-bernie$expectation
+bernie_clean$expectation <- bernie$expectation
 
 ##[1] -0.009466836 -0.679125251 -0.146376680 -0.605950913 -0.474317351  0.103381876
 
+```
+
+We have usen the raw data to calculate the averge of the kid with TD groupe by visit and compared the observations to Bernie, a ASD participant. 
+
+When comparing Bernie to the average TD participant, Bernie is constantly outperforming the average TD. Take for instance visit 1, Bernie has a mean length of utterance on 1.98. The average TD has a MLU of 1.3.
+
+At visit 6, the prediction of the model is a ChildMLU of 3.36, Bernie however, has a ChildMLU at 3.45. Bernie is better then the predicted values. The model is however fairly close at predciting correct.  When using the model to calculate the predictions on Bernie's data only, we see that Bernie's mean lenght of utterance is rather close to expectations at the first visit but in general below expectations at the first 5 visits. However, at visit 6 Bernie performed above expectations. 
+This development can also be seen in the plot below, where the blue line indicated the predicitons obtained by the model and the red line is Bernie's actual performance. 
 
 
+```{r}
+
+bernie_clean
 
 #Plotting Bernies predictions versus actualt performance 
 theme_set(theme_bw())
-ggplot(data = bernie, aes(x = visit)) + geom_smooth(aes(y=CHI_MLU), colour="red", method = "lm", formula = y ~ poly(x, 2), se = F) + 
-         geom_smooth(aes(y=predictions), colour="green", method = "lm", formula = y ~ poly(x, 2), se = F) +
+ggplot(data = bernie, aes(x = visit)) + geom_smooth(aes(y=CHI_MLU), colour="red", method = "lm", formula = y ~ poly(x, 3), se = F) + 
+         geom_smooth(aes(y=predictions), colour="blue", method = "lm", formula = y ~ poly(x, 3), se = F) +
   xlab('Number of Visit') +
   ylab("Bernie's Mean Lenght of Utterance")
 
 ```
 
-
-
-[HERE GOES YOUR ANSWER]
-
-
-
-As for Bernie compared to the average TD ...
-
-At visit 6, the prediction of the model is a ChildMLU of 2.45. Bernie has a ChildMLU at 3.45. Bernie is better then the predicted values. 
-
-When using the model to calculate the predictions on Bernies data only we see that Bernie performed close to expectations at the first visit but in general below expectations at the first 5 visits. However, at visit 6 Bernie performed above expectations. 
 
 
 
