@@ -12,7 +12,7 @@ setwd(locpath)
 getwd()
 
 library(pacman)
-p_load(tidyverse, lme4, lmerTest, simr, gdata)
+p_load(tidyverse, lmerTest, simr, gdata, lme4)
 
 ```
 
@@ -31,12 +31,6 @@ data <- rename.vars(data, "ExpressiveLangRaw1", "verbalIQ")
 
 data <- data[-c (1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
 data <- na.omit(data)
-
-
-data$visit <- as.numeric(data$visit)
-data$ID <- as.numeric(data$ID)
-
-
 ```
 
 ## Welcome to the fourth exciting part of the Language Development in ASD exercise
@@ -48,12 +42,40 @@ In this exercise we will assess how many participants we would need to adequatel
 How much power does your study have (if your model estimates are quite right)?
 
 - [GitHub]Load your dataset, fit your favorite model, assess power for your main effects and interactions of interest.
+
 ```{r + Model}
 
 #Best model from the previous assignments
-
-bestmodel <- lmer(CHI_MLU ~ visit*diagnosis + I(visit^2) + MOT_MLU + verbalIQ + (1 + visit + I(visit^2) | ID), data, REML = F)
+bestmodel <- lmer(CHI_MLU ~ diagnosis + visit + I(visit^2) + verbalIQ + MOT_MLU + (1 + visit + I(visit^2) | ID), data = data)
 summary(bestmodel)
+
+
+#Changing to interaction model
+ritter <- lmer(CHI_MLU ~ diagnosis*(visit + I(visit^2)) + (visit + I(visit^2) | ID), data = data, REML = F)
+summary(ritter)
+
+#Plotting the intercation - to see why visit^2 = not significant
+fe <- summary(ritter)$coefficients[1:6,1]
+fe
+
+plot_df <- expand.grid(visit=c(1,2,3,4,5,6),diagnosis=c(0,1)) %>% 
+  mutate(CHI_MLU = fe[1] + fe[2]*diagnosis + fe[3]*visit + fe[4]*visit*visit + fe[5]*diagnosis*visit + fe[6]*diagnosis*visit*visit)
+
+plot_interaction <- ggplot(plot_df, aes(y=CHI_MLU, x = visit, color = as.factor(diagnosis))) + 
+  geom_line(size=2) + 
+  labs(color = "diagnosis") + 
+    scale_color_brewer(palette = "Dark2") + 
+  theme(legend.position = "top") + 
+  theme_classic()
+
+plot_interaction
+#seems very close to linear, esp. ASD
+
+
+
+#Linear model
+linedanser <- lmer(CHI_MLU ~ diagnosis*visit + verbalIQ + (visit | ID), data = data, REML = F)
+summary(linedanser)
 
 ```
 
@@ -61,34 +83,28 @@ NOTE: Now with interaction and thereby including diagnosis
 
 ```{r + Power calculation}
 
-powerIQ <- powerSim(bestmodel, simr::fixed('verbalIQ', method = 't'), nsim = 200)
+#Power simulation for diagnosis
+#powerD <- powerSim(linedanser, simr::fixed('diagnosisTD', method = 't'), nsim = 200)
 
-powerD <- powerSim(bestmodel, simr::fixed('diagnosisTD', method = 't'), nsim = 1000)
+#Power simulation for visit
+#powerv <- powerSim(linedanser, simr::fixed('visit', method = 't'), nsim = 200)
 
-powerv <- powerSim(bestmodel, simr::fixed('visit', method = 't'), nsim = 200)
+#Power simulation for visit^2
+#powerv2 <- powerSim(bestmodel, simr::fixed('I(visit^2)', method = 't'), nsim = 200)
 
-powerVD <- powerSim(bestmodel, simr::fixed('visit:diagnosisTD', method = 't'), nsim = 1000)
+#Power simulation for interaction
+powerVD <- powerSim(linedanser, simr::fixed('diagnosisTD:visit', method = 't'), nsim = 200)
 
-powerv2 <- powerSim(bestmodel, simr::fixed('I(visit^2)', method = 't'), nsim = 200)
+#Power simulation for verbalIQ
+powerIQ <- powerSim(linedanser, simr::fixed('verbalIQ', method = 't'), nsim = 200)
 
-powerM <- powerSim(bestmodel, simr::fixed('MOT_MLU', method = 't'), nsim = 200)
 
-
-powerIQ
-powerD
-powerv
-powerv2
-powerM
+#powerD
+#powerv
+#powerv2
 
 powerVD
-
-
-#fixef(bestmodel)["visit"]
-#fixef(bestmodel)["ados1"]
-#fixef(bestmodel)["diagnosisTD"]
-fixef(bestmodel)["verbalIQ"]
-#fixef(bestmodel)["visit:diagnosisTD"]
-
+powerIQ
 
 lastResult()$warnings
 
@@ -96,35 +112,35 @@ lastResult()$warnings
 
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
 
-For this exercise we chose our 'bestmodel' (a bit revised from previous assignments). We chose a quadratic linear mixed effects model predicting child MLU development from number of visit, diagnosis, mother's mean length og utternace and verbalIQ. Moreover, we included visit and diagnosis as an interaction.The model also takes ID as  random intercept and random slopes by visit (pseudo-code: Child mean lenght of utterance ~ visit * diagnosis + visit^2 + MOT_MLU + verbalIQ + (1 + visit + visit^2 | ID). 
+For this exercise we chose our 'bestmodel' (a bit revised from previous assignments). We chose a quadratic linear mixed effects model predicting child MLU development from number of visit, diagnosis, mother's mean length of utternace and verbalIQ. Moreover, we included visit and diagnosis as an interaction.The model also takes ID as random intercept and random slopes by visit (pseudo-code: Child mean lenght of utterance ~ visit * diagnosis + visit^2 + MOT_MLU + verbalIQ + (1 + visit + visit^2 | ID). 
 
-Power simulations was run on the relevant fixed effects and interaction effect of diagnosis and visits. Assuming that the model has the right estimates, the model's power analysis has the following result:
-
-
-For the main effects: visit, mot_mlu, diagnosis and verbalIQ
-PowerVisit = 99.00% (96.43, 99.88)
-Effect size for visit is 0.32
-
-PowerVisit^2 = 94.50% (90.37, 97.22)
-Effect size for I(visit^2) is -0.036
-
-PowerDiagnosis =  7.90% ( 6.30,  9.75)
-Effect size for diagnosisTD is 0.050
-
-PowerVerbalIQ =  100.0% (98.17, 100.0)
-Effect size for verbalIQ is 0.059
-
-PowerMot_mlu = 100.0% (98.17, 100.0)
-Effect size for MOT_MLU is 0.29
-
-Interaction =  100.0% (99.63, 100.0)
-Effect size for visit:diagnosisTD is 0.25
+Power simulations were run on the relevant fixed effects and interaction effect of diagnosis and visits. Assuming that the model has the right estimates, the model's power analysis has the following result:
 
 
-Given the 80% power threshold, the power calculated here indicates that all the variables have enough power to be used in this study. Diagnosis by itself is quite low, however it makes no sense to look this predictor alone, since an interaction effect was found. 
-The power analysis indicates that the study was somewhat either overpowered - in that many predictors have a power of nearly 100% which is beyond threshold. 
-Nevertheless, this conclusion cannot be drawn solely based on this power analysis, since it is based on the estimates that our 'best model' predicted. These might be overestimates of the true effect size. 
- 
+For the main effects: visit, diagnosis and verbalIQ
+
+Visit
+97  %     (93.58, 98.89)
+0.10
+
+Diagnosis
+86  %     (80.41, 90.49)
+-0.42
+
+Verbal IQ
+100 %     (98.17, 100.0)
+0.075
+
+Interaction (Diagnosis x Visit)
+100 %     (98.17, 100.0)
+0.25
+
+
+The power analysis indicates that the study was somewhat either overpowered in the sense that the predictors have a power of nearly 100% which is beyond the threshold. 
+Nevertheless, this conclusion cannot be drawn solely based on this power analysis, since it is based on the estimates that our model predicted. These might be overestimates of the true effect size. 
+
+The estimates are interesting in several ways. They can be used a priori to uncover how many participants are needed to ensure meaningful findings. Or - like here - they can be used afterwards to investigate the effect size possible with the number of participants the study is based on.
+
 
 ### Exercise 2
 
@@ -132,96 +148,174 @@ How would you perform a more conservative power analysis?
 
 - Identify and justify a minimum effect size for each of your relevant effects
 
-```{r}
-
-summary(bestmodel)
-
-```
-
-
-
 - [GitHub] take the model from exercise 1 and replace the effects with the minimum effect size that you'd accept.
 
 ```{r}
 #estimates = fixed effects
 
-fixef(bestmodel)["visit"] <- 0.3
-fixef(bestmodel)["diagnosisTD"] <- 0.05
-fixef(bestmodel)["MOT_MLU"] <- 0.3
-fixef(bestmodel)["verbalIQ"]<- 0.01
-fixef(bestmodel)["visit:diagnosisTD"]<- 0.1
+#Irrelevant due to significant interaction effect 
+fixef(linedanser)["diagnosisTD:visit"]<- 0.15
 
 
-summary(bestmodel)
-
-
-powerIQf <- powerSim(bestmodel, simr::fixed("visit:diagnosisTD", method = 't'), nsim = 50)
-powerIQf
-
-pc<-powerCurve(bestmodel, simr::fixed("visit:diagnosisTD", method='t'), along = 'ID', nsim = 50)
-pc
-plot(pc)
+#Power simulations of set effect sizes
+powerVDset <- powerSim(linedanser, simr::fixed('diagnosisTD:visit', method = 't'), nsim = 200)
+powerVDset
 
 
 ```
 
-```{r}
 
-```
+Interaction (Diagnosis x Visit)
+98.5 %    (95.68, 99.69)
+0.15
+
+
 
 - [GitHub] assess the power curve by Child.ID, identifying an ideal number of participants to estimate each effect
 
 ```{r}
-# assessing power curve 
-# power curve 
+# assessing power curve for relevant effects
 
-pc<-powerCurve(model, simr::fixed('verbalIQ', method='t'), along = 'ID', nsim = 50)
-pc
-plot(pc)
+#VerbalIQ
+pcIQ <-powerCurve(linedanser, simr::fixed('verbalIQ', method='t'), along = 'ID', nsim = 200)
+pcIQ
+plot(pcIQ)
 
-pc2 <-powerCurve(model, simr::fixed('visit:diagnosisTD', method='t'), along = 'ID', nsim = 50)
-pc2
-plot(pc2)
 
-pc3 <-powerCurve(model, simr::fixed('MOT_MLU', method='t'), along = 'ID', nsim = 50)
-pc3
-plot(pc3)
+#Interaction
+pcIA <-powerCurve(linedanser, simr::fixed('diagnosisTD:visit', method='t'), along = 'ID', nsim = 200)
+pcIA
+plot(pcIA)
 
-pc4 <-powerCurve(model, simr::fixed('visit', method='t'), along = 'ID', nsim = 50)
-pc4
-plot(pc4)
+#Interaction (finding 80%)
+pcIAbreak <-powerCurve(linedanser, simr::fixed('diagnosisTD:visit', method='t'), along = 'ID', nsim = 200, breaks = 25:40)
+pcIAbreak
+plot(pcIAbreak)
 
-pc5 <-powerCurve(model, simr::fixed('I(visit^2)', method='t'), along = 'ID', nsim = 50)
-pc5
-plot(pc5)
+#Visit
+#pcV <-powerCurve(linedanser, simr::fixed('visit', method='t'), along = 'ID', nsim = 50)
+#pcV
+#plot(pcV)
 
-pc6 <-powerCurve(model, simr::fixed('diagnosisTD', method='t'), along = 'ID', nsim = 50)
-pc6
-plot(pc6)
+#pc5 <-powerCurve(bestmodel, simr::fixed('I(visit^2)', method='t'), along = 'ID', nsim = 200)
+#pc5
+#plot(pc5)
+
+#Diagnosis
+#pcD <-powerCurve(linedanser, simr::fixed('diagnosisTD', method='t'), along = 'ID', nsim = 50)
+#plot(pcD)
 
 ```
 
 - [GitHub] if your power estimates do not reach an acceptable threshold simulate additional participants and repeat the previous analysis
 
-
-
 - Report the power analysis and comment on what you can (or cannot) use its estimates for.
+
+The estimate of the interaction was lowered in an attempt to make a more conservative power analysis. As our hypotheses refer to the effect of time and diagnosis on child MLU, the interaction effect represents our two main effects and thus remains of primary interest. We consider verbal IQ to be sufficiently conservative as is and have decided to keep it at 0.075. 
+
+Using the chosen minimum effect sizes, these power curves (figures 2-4) indicate that 35 participants would be adequate to reach a threshold of 0.80 for the interaction effect. However, one might notice that if the had study been centred around the effect of verbal IQ, one could argue that ≈ 9 participants would be sufficient
 
 
 ### Exercise 3
 
 Assume you have only the resources to collect 30 kids (15 with ASD and 15 TDs). Identify the power for each relevant effect and discuss whether it's worth to run the study and why
+
 ```{r}
+set.seed(31)
+
+#list with ASD kids
+ASD <- data %>% group_by(ID) %>%
+  filter(diagnosis == "ASD", n() == 6)
+  
+#list with TD kids       
+TD <- data %>% group_by(ID) %>%
+  filter(diagnosis == "TD", n() == 6)
+
+
+#15 random IDs in asd-list
+asd15 <- sample(unique(ASD$ID), 15)
+asd15 <- as.vector(asd15)
+
+#15 random IDs in td-list
+td15 <- sample(unique(TD$ID), 15)
+td15 <- as.vector(td15)
+
+#list of the 30 rndom selected
+all30 <- c(asd15, td15)
+
+#make dataframe with the chosen kids
+data30 <- data %>%
+  subset(ID %in% all30)
+
+
+set.seed(44)
+#Power analysis
+model30 <- lmer(CHI_MLU ~ visit*diagnosis + verbalIQ + (1 + visit | ID), data30, REML = F)
+
+summary(model30)
 
 ```
 
 
+```{r}
 
 
+#Power simulation for verbalIQ
+powerIQ30 <- powerSim(model30, simr::fixed('verbalIQ', method = 't'), nsim = 200)
 
 
+#Power simulation for interaction
+powerVD30 <- powerSim(model30, simr::fixed('visit:diagnosisTD', method = 't'), nsim = 200)
 
 
+#powerv230 <- powerSim(model30, simr::fixed('I(visit^2)', method = 't'), nsim = 100)
+#powerD30 <- powerSim(model30, simr::fixed('diagnosisTD', method = 't'), nsim = 10)
+
+
+powerIQ30
+powerVD30
+
+
+#Using the minimum effect sizes from before
+fixef(model30)["visit:diagnosisTD"]<- 0.15
+
+
+#accessing power curves
+pcIQ30 <-powerCurve(model30, simr::fixed('verbalIQ', method='t'), along = 'ID', nsim = 200)
+pcIQ30
+plot(pcIQ30)
+
+pcIA30 <-powerCurve(model30, simr::fixed('visit:diagnosisTD', method='t'), along = 'ID', nsim = 200)
+pcIA30
+plot(pcIA30)
+
+```
+
+
+Using a subset of 30 random children, 15 ASD and 15 TD and the same model structure as previously, we achieve the following power levels and effect sizes:
+
+
+Verbal IQ
+
+100 %     (98.17, 100.0)
+0.075
+
+Interaction (Diagnosis x Visit)
+
+99.5 %    (97.25, 99.99)
+0.22
+
+Using the minimum effect sizes previously selected (changing the interaction to 0.15), our study has the following power levels:
+
+Verbal IQ
+100 %     (98.17, 100.0)
+0.075
+
+Interaction (Diagnosis x Visit)
+86 %      (80.41, 90.49)
+0.15
+
+Thus the study remains worth running if one is using a power threshold of 80%. One could argue that these results suggest that the actual study is quite overpowered and could be conducted using far less resources while still capturing the effects.
 
 
 
