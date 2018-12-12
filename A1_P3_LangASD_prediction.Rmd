@@ -551,7 +551,6 @@ predict(bernie_model, newdata = data_bernie_6, allow.new.levels = T)
 
 ## 3.133187
 
-
 ```
 
 We have used the raw data to calculate the average of the participants within TD group by visit. We used these values along with the model calculations (intercept and betas) to predict the value of child for the average TD at each visit and compared these to Bernie’s, an ASD participant., mean length of utterance. 
