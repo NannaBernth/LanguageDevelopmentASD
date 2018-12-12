@@ -1,10 +1,8 @@
 ---
-title: 'Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD)'
+title: "Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD)"
 author: "Nanna Bernth Davidsen"
 date: "12/09/2018"
-output:
-  word_document: default
-  html_document: default
+output: html_document
 ---
 
 # Assignment 1, Part 1: Language development in Autism Spectrum Disorder (ASD) - Brushing up your code skills
@@ -283,13 +281,13 @@ Tip: Use pipes `%>%` to solve this
 
 ```{r}
 #1. 
-MLU_27 <- unique(clean_train %>% filter(CHI_MLU > 2.7))
-unique(MLU_27$ID)
+unique(clean_train %>%   
+  filter(CHI_MLU > 2.7))
+
 
 #2
-MLU_15_1 <- (clean_train %>%
+unique(clean_train %>%
   filter(CHI_MLU < 1.5, Visit == 1))
-unique(MLU_15_1$ID)
   
 detach(package:plyr)
 library(dplyr)
@@ -315,19 +313,17 @@ USING ARRANGE
 
 #1
 #Kids who produced the most words on the 6th visit
-
-Most_6 <- clean_train %>% filter(Visit == 6) %>%
+clean_train %>% filter(Visit == 6) %>%
   arrange(desc(tokens_CHI))
-unique(Most_6$ID)
 
   #head(1)
 #Using head (or slice) to extract the KID who produced most words
 
 #2
 #Kids who produced the least amount of words on the 1st visit.
-Least_1 <- clean_train %>% filter(Visit == 1) %>%
+clean_train %>% filter(Visit == 1) %>%
   arrange(tokens_CHI)
-unique(Least_1$ID)
+
 
 ```
 
@@ -378,15 +374,7 @@ clean_w_mean <- clean_w_mean %>%
 ```
 
 
-3. 
-The average is relevant to compare each kid against the overall mean. 
-
-The average that we have calculated however, does not enable us to make a comparison between the two groups, and thereby if there is a difference due to diagnosis. Therefore, for this particular purpose an overall mean might not be as descriptive of the data than for instance an average of children with ADS compared against an average of TD children. 
-
-Generally, it is relevant to keep all the data points in order for us to measure if the mean is a good way of representing the data. Moreover, the raw data is important to look at progress or just general development in the word use of the kids individually and for instance taken other variables such as ADOS into account. 
- 
-
-
+The average is relevant to compare the kids against each other, however all the data point are relevant still to measure if the mean is a good solution to represent the data and to look at progress or just general development in the word use of the kids. 
 
 
 
