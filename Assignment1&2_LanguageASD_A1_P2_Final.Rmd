@@ -50,7 +50,6 @@ locpath= "C:/Users/nanna/OneDrive - Aarhus universitet/3. Semester/Experimental 
 
 setwd(locpath)
 data = read.csv("LanguageASD.csv")
-getwd()
 
 ```
 
@@ -67,6 +66,16 @@ data <- rename.vars(data, "ExpressiveLangRaw1", "verbalIQ")
 
 ```
 
+#Removing participants
+
+```{r + removing participant}
+#Removing ID 11 and 66, 48, 50 due to false/lack of information
+
+data <- data[-c (1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
+
+```
+
+
 ### Characterize the participants (Exercise 1)
 
 Identify relevant variables: participants demographic characteristics, diagnosis, ADOS, Verbal IQ, Non Verbal IQ, Visit, Number of words used, Number of unique words used, length of utterance in both child and parents.
@@ -75,7 +84,7 @@ Make sure the variables are in the right format.
 
 Describe the characteristics of the two groups of participants and whether the two groups are well matched.
 
-```{r}
+```{r + Descriptive}
 # Counting diagnosis
 data %>%
   filter(visit==1)%>%
@@ -125,17 +134,6 @@ summary(data_td)
 
 ``` 
 
-
-#Removing participants
-
-```{r}
-#Removing ID 11 and 66, 48, 50 due to false/lack of information
-
-data <- data[-c (1, 68, 69, 130, 131, 132, 276, 277, 284, 285), ]
-
-```
-
-
 #Plotting the participant data
 
 ```{r descriptive stats, include = FALSE}
@@ -165,7 +163,6 @@ ggplot(data) +
   labs(x = xlab, y = ylab)
 
 #PLOT WITH INDIVIDUAL LINEAR LINES
-
 ggplot(data, aes(x = visit, y = CHI_MLU, group = ID)) +
   geom_smooth(method = "lm", se = F, aes(col = ID)) + 
   geom_point(aes(col = ID)) +
@@ -178,9 +175,6 @@ ggplot(data, aes(x = visit, y = CHI_MLU, group = ID)) +
 
 
 ```
-
-
-[REPORT THE RESULTS]
 
 
 ## Let's test hypothesis 1: Children with ASD display a language impairment  (Exercise 2)
@@ -210,8 +204,6 @@ model1 <- lmer(CHI_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML
 
 summary(model1)
 
-confint(model1)
-
 ```
 
 How would you evaluate whether the model is a good model?
@@ -235,6 +227,7 @@ r.squaredGLMM(model1)
 
 
 #Creating null-models
+
 model1.null <- lmer(CHI_MLU ~ 1 + (1 + visit | ID), data = data, REML = F)
 
 model1.null1 <- lmer(CHI_MLU ~ diagnosis + (1 + visit | ID), data = data, REML = F)
@@ -349,10 +342,8 @@ ggplot(as.data.frame(ee),
 ```
 
 
-
 Exciting right?
 Now it's time to report our results.
-
 
 Remember to report:
 - the estimates for each predictor (beta estimate, standard error, p-value)
@@ -364,6 +355,8 @@ Remember to report:
 Linguistic development of children MLU is affected by ... 
 
 
+
+##Exercise 3 
 
 ## Let's test hypothesis 2: Parents speak equally to children with ASD and TD  (Exercise 3)
 ```{r}
@@ -380,6 +373,7 @@ boxplot(MOT_MLU ~ visit+diagnosis, data = data,
 ```{r ex3, include = FALSE}
 
 Parental_MLU <- lmer(MOT_MLU ~ visit + diagnosis + (1 + visit | ID), data = data, REML = F)
+
 summary(Parental_MLU)
 
 
@@ -394,6 +388,7 @@ ggplot(data = data, aes(x = visit, y = MOT_MLU, group = ID)) +
 ```
 
 
+#Models
 ```{r ex3, include = FALSE}
 #Quadratic Parental Model
 
@@ -405,7 +400,7 @@ summary(Parental_model_quadratic)
 plot(fitted(Parental_model_quadratic),residuals(Parental_model_quadratic))^2
 
 
-#Plotting
+#Plotting indiviidal
 ggplot(data = data, aes(x = visit, y = MOT_MLU, group = ID)) +
   geom_smooth(method = "lm", formula = y ~ poly(x, 2), se = F, aes(color = ID)) + 
   geom_point(aes(col = ID)) + 
@@ -444,7 +439,6 @@ ggplot(data = data, aes(x = visit, y = MOT_MLU, group = ID)) +
 
 ```
 
-
 #Comparing the models
 ```{r ex3, include = FALSE}
 
@@ -471,10 +465,7 @@ ggplot(as.data.frame(ee),
 
 
 [REPORT THE RESULTS]
-
-The quadratic model is the one with the lowest AIC. 
-And most significant. 
-
+The quadratic model is the one with the lowest AIC. And most significant. 
 
 
 ### Adding new variables (Exercise 4)
@@ -486,7 +477,7 @@ The dataset contains a bunch of additional demographic, cognitive and clinical v
 Describe how you selected the best model and send the code to run the model to Malte (au540041@post.au.dk).
 
 
-```{r}
+```{r + Correlation plots}
 
 #Correlation test too find variables that correlate / explain the same variance possibly
 
@@ -513,6 +504,7 @@ Play with Ados
 
 #Using ados instead of diagnosis
 model_ados <- lmer(CHI_MLU ~ visit + ados1 + (1 + visit| ID), data = data, REML=FALSE)
+
 summary(model_ados)
 
 #R-squared
@@ -528,6 +520,7 @@ r.squaredGLMM(model_ados)
 
 Play with MOT_MLU
 ```{r ex4, include = FALSE}
+
 #Adding the parents MLU
 model_MOT <- lmer(CHI_MLU ~ visit + MOT_MLU + (1 + visit| ID), data = data, REML=FALSE)
 
@@ -553,6 +546,7 @@ anova(model_ados, model_MOT)
 
 #Cubic try with ados
 model_ados_c <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + (1+visit + I(visit^2) + I(visit^3)| ID), data = data, REML=FALSE)
+#does not converge
 
 summary(model_ados_c)
 #alot is left to the residuals....
@@ -583,7 +577,9 @@ r.squaredGLMM(model_both_q)
 ## [1,] 0.3041565 0.8507551
 
 
-model_three_q <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ados1 + MOT_MLU + verbalIQ + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data, REML=FALSE)
+
+model_three_q <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + verbalIQ + (1 +visit + I(visit^2) |  ID), data = data, REML=FALSE)
+#Does not converge if cubic 
 
 summary(model_three_q)
 
@@ -591,27 +587,32 @@ r.squaredGLMM(model_three_q)
 ##           R2m       R2c
 ## [1,] 0.5190548 0.8495238
 
+anova(model_both_q, model_three_q)
+#Three_q is better
+
 ```
 
 
 P-hacking
 ```{r ex4, include = FALSE}
-###For fun best model 
-p_hacked <- lmer(CHI_MLU ~ visit + I(visit^2) + I(visit^3) + ID + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2)+ I(visit^3)| ID), data = data, REML=FALSE)
-summary(model_three_q)
+
+###For fun best model (quadratic)
+p_hacked <- lmer(CHI_MLU ~ visit + I(visit^2) + nonverbalIQ + verbalIQ + types_CHI + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+
+summary(p_hacked)
+
+#DOES TO CONVERGENCE ERROR WE HAVE THE MODEL HAS BEEN CHANGED TO A QUADRATIC MODEL INSTEAD OF CUBIC
+#ALSO ID HAS BEEN REMOVED FROM BEING BOTH A FIXED AND RANDOM EFFECT
 
 r.squaredGLMM(p_hacked)
 
-##          R2m       R2c
-## [1,] 0.766436 0.8891787
+#           R2m       R2c
+# [1,] 0.768312 0.8794726
+
 
 
 ###Comparing
-anova(model_ados_c, model_ados_q, model_both_q, model_cubic)
-
-
-
-model_both_q <- lmer(CHI_MLU ~ visit + I(visit^2) + ados1 + MOT_MLU + (1+visit + I(visit^2) | ID), data = data, REML=FALSE)
+anova(model1.null, p_hacked, model_three_q)
 
 ```
 
@@ -647,4 +648,3 @@ ggplot(data = data, aes(x = visit, y = CHI_MLU, group = ados1, colour = ados1)) 
 
 
 [REPORT THE RESULTS]
-
